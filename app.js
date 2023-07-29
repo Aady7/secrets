@@ -15,7 +15,8 @@ const passportLocalMongoose = require("passport-local-mongoose");
 const { userInfo } = require('os');
 const findOrCreatePlugin = require('mongoose-findorcreate');
 const { profile } = require('console');
-const dbURL = 'mongodb://127.0.0.1:27017/userDB'
+const dbURL =process.env.DB_URL
+
 findOrCreate= require("mongoose-findorcreate")
 
 app.use(bodyParser.urlencoded({
@@ -24,6 +25,13 @@ app.use(bodyParser.urlencoded({
 
 app.set('view engine', 'ejs');
 app.use(express.static("public"));
+app.use(cors(
+    {
+        origin:["https://deploy-mern-1whq.vercel.app"],
+        methods:["Post","GET"],
+        credentials:true
+    }
+    ));
 app.use(session({
     secret: "I will crack gcoc2024",
     resave: false,
