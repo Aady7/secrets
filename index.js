@@ -22,6 +22,7 @@ findOrCreate= require("mongoose-findorcreate")
 app.use(bodyParser.urlencoded({
     extended: true
 }));
+app.set('views', './views');
 
 app.set('view engine', 'ejs');
 app.use(express.static("public"));
