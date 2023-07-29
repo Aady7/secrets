@@ -26,13 +26,7 @@ app.set('views', './views');
 
 app.set('view engine', 'ejs');
 app.use(express.static("public"));
-app.use(cors(
-    {
-        origin:["https://deploy-mern-1whq.vercel.app"],
-        methods:["Post","GET"],
-        credentials:true
-    }
-    ));
+
 app.use(session({
     secret: "I will crack gcoc2024",
     resave: false,
