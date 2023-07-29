@@ -6,12 +6,17 @@ const ejs = require("ejs");
 const app = express();
 const mongoose = require("mongoose");
 const { stringify } = require("querystring");
+var GoogleStrategy = require('passport-google-oauth20').Strategy;
+GitHubStrategy=require("passport-github2").Strategy;
 
 const session = require("express-session");
 const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
 const { userInfo } = require('os');
+const findOrCreatePlugin = require('mongoose-findorcreate');
+const { profile } = require('console');
 const dbURL = 'mongodb://127.0.0.1:27017/userDB'
+findOrCreate= require("mongoose-findorcreate")
 
 app.use(bodyParser.urlencoded({
     extended: true
@@ -44,20 +49,56 @@ setTimeout(() => {
 
 const userSchema = new mongoose.Schema({
    username: String,
-    password: String
+    password: String,
+    googleId: String,
+    githubId:String,
+    secret:String
 });
 
 userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate);
 const User = mongoose.model("User", userSchema);
 
 
 passport.use(User.createStrategy());
+passport.serializeUser(function(user, done) {
+    done(null, user);
+  });
 
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+  passport.deserializeUser(function(user, done) {
+    done(null, user);
+  });
 
 
+  
 
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/secrets",
+    userProfileURL:"https://www.googleapis.com/oauth2/v3/userinfo"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+     
+    });
+    console.log(profile);
+  }
+));
+passport.use(new GitHubStrategy({
+    clientID: process.env.GITHUB_CLID,
+    clientSecret: process.env.GITHUB_CLSEC,
+    callbackURL: "http://localhost:3000/auth/github/secrets"
+  },
+  function(accessToken, refreshToken, profile, done) {
+    User.findOrCreate({ githubId: profile.id }, function (err, user) {
+      return done(err, user);
+    });
+    console.log(profile);
+  }
+));
 app.get("/", function (request, response) {
     response.render("home");
 });
@@ -72,12 +113,15 @@ app.get("/register", function (request, response) {
 
 
 app.get("/secrets", function(request,response){
-    if(request.isAuthenticated()){
-        response.render("secrets")
-    }
-    else{
-        response.render("login");
-    }
+    User.find({"secret":{$ne:null}})
+    .then((foundusers)=>{
+     response.render("secrets", {userswithsecrets:foundusers})
+
+    })
+    .catch((err)=>{
+        console.log(err);
+    })
+   
 })
 
 
@@ -93,6 +137,34 @@ app.get("/logout", function(req,res){
     
 
 })
+app.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile'] }));
+  
+
+app.get('/auth/google/secrets', 
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/secrets');
+  });
+  app.get('/auth/github',
+  passport.authenticate('github', { scope: [ 'user:email' ] }));
+
+app.get('/auth/github/secrets', 
+  passport.authenticate('github', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/secrets');
+  });
+
+  app.get("/submit", function(req,res){
+    if(req.isAuthenticated()){
+        res.render("submit")
+    }
+    else{
+        res.render("login");
+    }
+  })
 app.post("/register", function (req, res) {
     User.register({ username: req.body.username }, req.body.password, function (err, user) {
         if(err) {
@@ -131,6 +203,28 @@ app.post("/login", function (req, res) {
 
 
 
+})
+app.post("/submit", function(req,res){
+    const submitted_secret=req.body.secret
+    var id =(req.user._id)
+    User.findById(id)
+    .then((founduser)=>{
+        founduser.secret=submitted_secret;
+        founduser.save()
+        .then(()=>{
+            res.redirect("/secrets")
+        })
+        .catch((err)=>{
+            console.log(err);
+        });
+        
+
+
+
+    })
+    .catch((err)=>{
+        console.log(err);
+    })
 })
 
 
